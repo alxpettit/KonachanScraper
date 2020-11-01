@@ -9,6 +9,8 @@ import requests
 import utils
 import html
 
+# TODO: make 'lewd' dir be created if it doesn't exist!!
+
 re_url_identifier = re.compile("^https?://")
 re_original_file_generic = re.compile("original-file")
 
@@ -21,9 +23,15 @@ class KonachanScraper:
     logger: logging.Logger = None
     _soup: bs4.Tag = None
     _url: str = None
+    target_dir: Path = Path('lewd')
+    blacklisted_tags: List[str] = []
 
     def __init__(self):
         self.logger = logging.getLogger("KonachanScraper")
+        try:
+            self.target_dir.mkdir()
+        except FileExistsError:
+            pass
         self.logger.info("Initialized.")
 
     def scrape(self, search_terms: List[str], base_url: str = "https://konachan.com/post"):
@@ -63,21 +71,30 @@ class KonachanScraper:
             return ""
         return str(link_tag.get('href', re_url_identifier))
 
+    def containsBlacklisted(self, string: str):
+        for tag in self.blacklisted_tags:
+            if tag in string.split():
+                return True
+        return False
+
     def handleImagePost(self, image_post: bs4.Tag) -> bool:
         url_without_tag: str = image_post.text[len('#pl'):]
         image_download_url: str = self.getBestImageFromPostPage(url_without_tag)
+
+        fname: str = utils.getFileNameFromURL(image_download_url)
+        fname = fname[len('Konachan.com - '):]
+        file_path: Path = self.target_dir / fname
+        if self.containsBlacklisted(fname):
+            self.logger.warning(f'Skipping: "{fname}" due to blacklist.')
+            return False
         if image_download_url == "":
             self.logger.warning(f'Skipping download for page: "{url_without_tag}"')
-        else:
-            fname: str = utils.getFileNameFromURL(image_download_url)
-            fname = fname[len('Konachan.com - '):]
-            with utils.DelayedKeyboardInterrupt():
-                self.logger.info(f'Downloading file: "{fname}"')
-                file_path: Path = Path("lewd") / fname
-                if not file_path.exists():
-                    utils.dl_file(image_download_url, file_path)
-                else:
-                    self.logger.warning(f'Skipping existing file: "{file_path}"')
+        with utils.DelayedKeyboardInterrupt():
+            self.logger.info(f'Downloading file: "{fname}"')
+            if not file_path.exists():
+                utils.dl_file(image_download_url, file_path)
+            else:
+                self.logger.warning(f'Skipping existing file: "{file_path}"')
         return True
 
     def iterateOverSearchResults(self) -> bool:
