@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Pattern
+from typing import List
 import urllib.parse
 
 import bs4
@@ -7,9 +7,10 @@ import logging
 import re
 import requests
 import utils
-import html
 
-# TODO: make 'lewd' dir be created if it doesn't exist!!
+# TODO: fix last tag (probably) not being parsed correctly due to file extension. :(
+# TODO: add whitelist to compensate for bad site programming
+# TODO: refactor to do asynchronous
 
 re_url_identifier = re.compile("^https?://")
 re_original_file_generic = re.compile("original-file")
